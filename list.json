@@ -1,0 +1,41 @@
+[
+  {
+    "fusion": "concat",
+    "augment": "specaugment",
+    "loss": "label_smoothing",
+    "optimizer": "adamw_lookahead",
+    "scheduler": "onecycle",
+    "pretrained": "imagenet_v1",
+    "backbone": "efficientnet_b0",
+    "classifier": "linear",
+    "name": "compare_D_linear",
+    "backbone1": "cnn",
+    "data_root": "data/set"
+  },
+  {
+    "fusion": "concat",
+    "augment": "specaugment",
+    "loss": "label_smoothing",
+    "optimizer": "adamw_lookahead",
+    "scheduler": "onecycle",
+    "pretrained": "imagenet_v1",
+    "backbone": "efficientnet_b0",
+    "classifier": "dropout",
+    "name": "compare_D_dropout",
+    "backbone1": "cnn",
+    "data_root": "data/set"
+  },
+  {
+    "fusion": "concat",
+    "augment": "specaugment",
+    "loss": "label_smoothing",
+    "optimizer": "adamw_lookahead",
+    "scheduler": "onecycle",
+    "pretrained": "imagenet_v1",
+    "backbone": "efficientnet_b0",
+    "classifier": "dropblock1d",
+    "name": "compare_D_dropblock1d",
+    "backbone1": "cnn",
+    "data_root": "data/set"
+  }
+]
