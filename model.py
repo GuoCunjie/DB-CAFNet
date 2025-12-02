@@ -97,7 +97,7 @@ class Performer1D(nn.Module):
         x = x.transpose(1, 2)               # [B, C, T']
         x = self.pool(x).squeeze(-1)        # [B, C]
         return self.out_proj(x)             # [B, C] or [B, num_classes]
-# ==== 1D ResNet 构建 ====
+#1D ResNet 构建
 class BasicBlock1D(nn.Module):
     def __init__(self, in_channels, out_channels, stride=1):
         super().__init__()
@@ -159,9 +159,9 @@ class Transformer1D(nn.Module):
         x = self.encoder(x).permute(1, 2, 0)  # [B, C, T]
         return self.pool(x).squeeze(-1)  # [B, C]
 
-# ------------------------------
-# 1. 加载主干网络
-# ------------------------------
+
+# 加载主干网络
+
 def get_backbone(name, pretrained):
     if name == "none":
         return nn.Identity()
@@ -212,16 +212,16 @@ def get_backbone(name, pretrained):
 
     return model_fn_map[name](weights=weights)
 
-# ------------------------------
-# 2. 主模型结构
-# ------------------------------
+
+# 主模型结构
+
 class DualBranchFusionNet(nn.Module):
     def __init__(self, backbone_name, fusion_mode, classifier_mode, time_branch_type ,pretrained, augment_name, num_classes):
         super().__init__()
         self.fusion_mode = fusion_mode
 
         '''
-        # === 时域分支 ===
+        #时域分支
         self.time_branch = nn.Sequential(
             nn.Conv1d(1, 64, kernel_size=9, stride=2, padding=4),
             nn.BatchNorm1d(64), nn.ReLU(),
@@ -230,7 +230,7 @@ class DualBranchFusionNet(nn.Module):
             nn.AdaptiveAvgPool1d(1)  # 输出 [B, 128, 1]
         )
         '''
-        # ==== 时域分支 ====
+        # 时域分支
         if time_branch_type == "cnn":
             self.time_branch = nn.Sequential(
                 nn.Conv1d(1, 64, kernel_size=9, stride=2, padding=4),
@@ -252,14 +252,14 @@ class DualBranchFusionNet(nn.Module):
             raise ValueError(f"Unsupported time_branch_type: {time_branch_type}")
 
 
-        # === 频谱图变换 + 增强 ===
+        # 频谱图变换 + 增强
         self.mel = torchaudio.transforms.MelSpectrogram(
             sample_rate=44100, n_fft=1024, hop_length=256, n_mels=128)
         self.db = torchaudio.transforms.AmplitudeToDB()
         self.augment_name = augment_name
         self.spec_aug = get_augment_module(augment_name)
 
-        # === 主干网络（频域） ===
+        # 主干网络（频域）
         self.backbone = get_backbone(backbone_name, pretrained)
         # if "efficientnet" in backbone_name:
         #     self.backbone.features[0][0] = nn.Conv2d(1, 32, kernel_size=3, stride=2, padding=1, bias=False)
@@ -293,14 +293,14 @@ class DualBranchFusionNet(nn.Module):
             self.backbone.classifier = nn.Identity()
             feat_dim = 1280  # fallback
 
-        # === 若使用 sum 融合，需要统一维度 ===
+      
         if fusion_mode in ["sum", "gated_sum", "light_attn", "residual_fuse", "cross_mul"]:
             self.feat_projector = nn.Linear(feat_dim, 128)
             feat_dim = 128
         else:
             self.feat_projector = nn.Identity()
 
-        # === 融合模块 ===
+        # 融合模块
         if fusion_mode == "concat":
             self.fusion = nn.Identity()
             fusion_out = 128 + feat_dim
@@ -308,14 +308,14 @@ class DualBranchFusionNet(nn.Module):
             self.fusion = get_fusion_module(fusion_mode, 128, feat_dim, 128)
             fusion_out = 128
 
-        # === 分类器（非创新，统一使用 MLP）===
+        # 分类器（非创新，统一使用 MLP）
         self.classifier = get_classifier_module(classifier_mode, fusion_out, num_classes)
 
     def forward(self, x):
 
-        # # ----- 时域分支 -----
+        # 
         # x_time = self.time_branch(x).squeeze(-1)  # [B, 128]
-        # # ----- 频域分支 -----
+        # 
         # x_freq = self.db(self.mel(x.squeeze(1)))     # [B, 128, T]
         #
         # if self.augment_name in ["frame_drop", "mel_warp"]:
@@ -323,22 +323,22 @@ class DualBranchFusionNet(nn.Module):
         # else:
         #     x_freq = self.spec_aug(x_freq).unsqueeze(1)  # [B, 1, 128, T0]
         # x_feat = self.backbone(x_freq)               # [B, feat_dim]
-        # x_feat = self.feat_projector(x_feat)         # 若 sum 则映射到 [B, 128]
+        # x_feat = self.feat_projector(x_feat)         
 
-        # # ----- 融合 -----
+        #
         # if self.fusion_mode == "concat":
         #     x_all = torch.cat([x_time, x_feat], dim=1)   # [B, 128 + feat_dim]
         # else:
         #     x_all = self.fusion(x_time, x_feat)          # [B, 128]
         #
         # return self.classifier(x_all)
-        # ============ 时域分支 ============
+        #  时域分支
         if isinstance(self.time_branch, nn.Identity):
             x_time = None
         else:
             x_time = self.time_branch(x).squeeze(-1)  # [B, 128]
 
-        # ============ 频域分支 ============
+        #  频域分支 
         if isinstance(self.backbone, nn.Identity):
             x_feat = None
         else:
@@ -350,7 +350,7 @@ class DualBranchFusionNet(nn.Module):
             x_feat = self.backbone(x_freq)  # [B, feat_dim]
             x_feat = self.feat_projector(x_feat)
 
-        # ============ 融合 ============
+        #  融合 
         if x_time is None:
             x_all = x_feat
         elif x_feat is None:
@@ -363,9 +363,9 @@ class DualBranchFusionNet(nn.Module):
 
         return self.classifier(x_all)
 
-# ------------------------------
-# 3. 构建模型函数
-# ------------------------------
+
+# 构建模型函数
+
 def build_model(config, num_classes):
     return DualBranchFusionNet(
         backbone_name=config["backbone"],
@@ -376,3 +376,4 @@ def build_model(config, num_classes):
         num_classes=num_classes,
         time_branch_type=config["backbone1"]
     )
+
