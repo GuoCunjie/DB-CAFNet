@@ -37,7 +37,7 @@ class FrameDrop(nn.Module):
         super().__init__()
         self.prob = drop_prob
 
-    def forward(self, x):  # ← ✅ 这里必须是直接定义
+    def forward(self, x):  
         if x.ndim == 3:
             x = x.unsqueeze(1)
         elif x.ndim == 5:
@@ -78,4 +78,5 @@ def get_augment_module(name):
         return FrameDrop()
     else:
         raise ValueError(f"Unknown augment: {name}")
+
 
