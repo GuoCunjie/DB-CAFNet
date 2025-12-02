@@ -109,7 +109,7 @@ def train_model(model, train_loader, test_loader, num_classes, device, config, e
     if best_model:
         torch.save(best_model, os.path.join(exp_dir, "models", "best_model.pth"))
 
-    # ======== 指标评估 ========
+
     class_report = classification_report(y_true, y_pred, output_dict=True, zero_division=0)
     y_true_bin = label_binarize(y_true, classes=list(range(num_classes)))
     y_score_np = np.array(y_score)
@@ -139,7 +139,7 @@ def train_model(model, train_loader, test_loader, num_classes, device, config, e
     import pandas as pd
     pd.DataFrame(class_report).transpose().to_csv(classification_report_path)
 
-    # ======= 可视化 ========
+
     plt.figure()
     plt.plot(train_accs, label='Train Acc')
     plt.plot(test_accs, label='Test Acc')
@@ -335,3 +335,4 @@ def train_model(model, train_loader, test_loader, num_classes, device, config, e
             plt.savefig(os.path.join(exp_dir, "plots", f"{mode}_curve.png")); plt.close()
 
     json.dump(config, open(os.path.join(exp_dir, "logs", "config.json"), "w"), indent=2)
+
