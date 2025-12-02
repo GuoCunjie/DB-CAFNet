@@ -1,10 +1,5 @@
 # single_branch.py
-# =========================================================
-# 单文件可独立运行：支持单时域(time_only)与单频域(freq_only)训练
-# - 数据目录结构：data/set/{train,test}/class/*.wav
-# - 指标与可视化保存路径：run/<exp_name>/
-# - 与原项目 train.py 的评估口径保持一致
-# =========================================================
+
 
 import os
 import json
@@ -19,17 +14,15 @@ import torchaudio
 from torch.utils.data import DataLoader, Dataset
 from torch.backends import cudnn
 
-# ========= 复用你项目中的模块（分类器与增强） =========
+
 from classifier_factory import get_classifier_module   # 保持与原项目一致
 from augment_factory import get_augment_module         # 保持与原项目一致
 
-# ========= 训练与评估（直接复用原有实现，保证口径一致） =========
+
 from train import train_model  # 会按原样保存 metrics/plots/logs 等全部产物
 
 
-# ======================
-# 数据集（保持与 dataset.py 一致）
-# ======================
+
 class InsectDataset(Dataset):
     """
     与你当前 dataset.py 逻辑一致：
@@ -55,9 +48,9 @@ class InsectDataset(Dataset):
         waveform, sr = torchaudio.load(self.data[idx])
         if sr != self.sample_rate:
             waveform = torchaudio.transforms.Resample(sr, self.sample_rate)(waveform)
-        # 单声道
+
         waveform = waveform.mean(dim=0, keepdim=True) if waveform.shape[0] > 1 else waveform
-        # 对齐长度
+
         if waveform.shape[1] < self.target_len:
             repeat = self.target_len // waveform.shape[1] + 1
             waveform = waveform.repeat(1, repeat)[:, :self.target_len]
@@ -67,9 +60,7 @@ class InsectDataset(Dataset):
         return waveform, self.labels[idx]
 
 
-# ======================
-# Backbone 构建（频域用）
-# ======================
+
 from torchvision import models
 from torchvision.models import (
     EfficientNet_B0_Weights, EfficientNet_B1_Weights, EfficientNet_B2_Weights,
@@ -119,9 +110,7 @@ def get_backbone(name: str, pretrained: str):
     return model_fn_map[name](weights=weights)
 
 
-# ======================
-# 单分支模型
-# ======================
+
 class TimeOnlyNet(nn.Module):
     """
     时域单分支：沿用你原本 DualBranchFusionNet 的 time_branch + 可选分类器
@@ -157,7 +146,7 @@ class FreqOnlyNet(nn.Module):
         self.spec_aug = get_augment_module(augment_name)
 
         self.backbone = get_backbone(backbone_name, pretrained)
-        # 统一改为单通道输入，并截取主干的分类头前的特征维度
+
         if "efficientnet" in backbone_name:
             self.backbone.features[0][0] = nn.Conv2d(
                 1, 32, kernel_size=3, stride=2, padding=1, bias=False
@@ -222,9 +211,7 @@ class FreqOnlyNet(nn.Module):
         return self.classifier(x_feat)
 
 
-# ======================
-# 构建模型
-# ======================
+
 def build_single_branch_model(config: dict, num_classes: int) -> nn.Module:
     mode = config.get("mode", "time_only")
     if mode == "time_only":
@@ -241,9 +228,7 @@ def build_single_branch_model(config: dict, num_classes: int) -> nn.Module:
         raise ValueError(f"Unsupported mode: {mode}. Use 'time_only' or 'freq_only'.")
 
 
-# ======================
-# 入口：训练
-# ======================
+
 def parse_args():
     p = argparse.ArgumentParser(description="Single-Branch Trainer (Time-Only / Freq-Only)")
     # 运行模式
@@ -301,10 +286,10 @@ def main():
     train_loader = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     test_loader  = DataLoader(test_set,  batch_size=args.batch_size, num_workers=args.num_workers)
 
-    # 组装配置（与原项目字段保持一致）
+    # 组装配置
     ablation_config = {
-        "mode": args.mode,                  # 新增字段，区分单分支
-        "fusion": "none",                   # 单分支不需要融合，但为兼容性保留
+        "mode": args.mode,                  
+        "fusion": "none",                 
         "augment": args.augment,
         "loss": "label_smoothing",
         "optimizer": args.optimizer,
@@ -322,9 +307,10 @@ def main():
                f"{ablation_config['loss']}-{ablation_config['optimizer']}-{ablation_config['scheduler']}-" \
                f"{ablation_config['pretrained']}-{ablation_config['classifier']}"
 
-    # 开训（复用原 train_model，保证与原来完全一致的保存与指标）
+
     train_model(model, train_loader, test_loader, num_classes, device, ablation_config, exp_name)
 
 
 if __name__ == "__main__":
     main()
+
