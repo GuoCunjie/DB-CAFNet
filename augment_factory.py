@@ -23,7 +23,7 @@ class MelWarp(nn.Module):
     def forward(self, x):
         if x.ndim == 3:  # [B, 128, T]
             x = x.unsqueeze(1)
-        elif x.ndim == 5:  # 错误多加了一维
+        elif x.ndim == 5:  
             x = x.squeeze(1)
         B, C, H, W = x.shape
         for b in range(B):
@@ -78,5 +78,6 @@ def get_augment_module(name):
         return FrameDrop()
     else:
         raise ValueError(f"Unknown augment: {name}")
+
 
 
